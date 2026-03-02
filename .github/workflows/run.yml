@@ -1,25 +1,29 @@
-name: Run Google News Bot
+name: Run Google News Script
 
 on:
   schedule:
-    - cron: "0 0 * * *"
-  workflow_dispatch:
+    - cron: '0 22,0,2,4,6,8,10,12 * * *'  # 日本時間 7〜21時、2時間おき
+  workflow_dispatch:  # 手動でも実行可能
 
 jobs:
-  run:
+  run-script:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.11'
 
-      - name: ライブラリインストール
+      - name: Install packages
         run: |
-          pip install playwright feedparser
-          playwright install --with-deps chromium
+          pip install -r requirements.txt
+          playwright install chromium
 
-      - name: 実行
+      - name: Run script
+        env:
+          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: python google_news_redirect.py

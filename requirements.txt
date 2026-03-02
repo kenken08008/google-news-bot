@@ -1,0 +1,4 @@
+playwright
+feedparser
+gspread
+google-auth

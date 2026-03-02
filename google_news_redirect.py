@@ -80,7 +80,7 @@ def main():
         browser = p.chromium.launch(headless=True)
         page = browser.new_page()
 
-        for i, entry in enumerate(feed.entries, start=1):
+        for i, entry in enumerate(feed.entries[:10], start=1):
             google_url = entry.link
             original = get_original_url(page, google_url)
 
@@ -100,3 +100,4 @@ def main():
 # =========================
 if __name__ == "__main__":
     main()
+

@@ -26,4 +26,4 @@ jobs:
       - name: Run script
         env:
           GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-        run: python google_news_redirect.py
+        run: python finland.py

@@ -19,7 +19,7 @@ SERVICE_FILE = "credentials.json"
 # =========================
 # Google Sheets 設定
 # =========================
-SPREADSHEET_ID = "17np0tNMRxZVxIGiogFk_5DLDBaGKZOOlLY-sOwDFjAI"
+SPREADSHEET_ID = "13US1u2PxZGwUGs_cQ0HcbxAfjEe6rvZMr1g0GF9UYiY"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 creds = Credentials.from_service_account_file(

@@ -1,93 +1,76 @@
-import time
-import csv
 from playwright.sync_api import sync_playwright
-
-# ===============================
-# 設定
-# ===============================
-
-# 入力ファイル（GoogleニュースRSSなどから取得したURL一覧）
-INPUT_FILE = "input.csv"
-
-# 出力ファイル（リダイレクト後URL）
-OUTPUT_FILE = "output.csv"
-
-# 待機秒（Google対策：少し待つ）
-WAIT_SECONDS = 5
+import feedparser
 
 
-# ===============================
-# リダイレクトURL取得関数
-# ===============================
-def get_redirect_url(page, url):
+# ==============================
+# 取得したいGoogleニュースRSS
+# ==============================
+RSS_URL = "https://news.google.com/rss/search?hl=ja&gl=JP&ceid=JP%3Aja&oc=11&q=intitle%3A%E3%83%95%E3%82%A3%E3%83%B3%E3%83%A9%E3%83%B3%E3%83%89%20when%3A1d"
+
+
+# ==============================
+# 元記事URL取得関数（重要）
+# ==============================
+def get_original_url(page, url):
     try:
-        print("アクセス:", url)
-
+        # Googleニュースページを開く
         page.goto(url, timeout=60000)
 
-        # ページが安定するまで待つ
+        # 通信が落ち着くまで待つ
         page.wait_for_load_state("networkidle")
 
-        # 少し待つ（超重要：bot対策）
-        time.sleep(WAIT_SECONDS)
+        # news.google.com 以外になるまで待つ（リダイレクト待機）
+        page.wait_for_function(
+            "location.hostname !== 'news.google.com'",
+            timeout=20000
+        )
 
-        # 現在URLを取得（リダイレクト後）
-        final_url = page.url
-        print("取得:", final_url)
-
-        return final_url
+        # 最終URL（元記事）
+        return page.url
 
     except Exception as e:
-        print("取得失敗:", e)
         return "取得失敗"
 
 
-# ===============================
+# ==============================
 # メイン処理
-# ===============================
+# ==============================
 def main():
 
-    # CSV読み込み
-    with open(INPUT_FILE, newline="", encoding="utf-8") as f:
-        reader = csv.reader(f)
-        urls = [row[0] for row in reader if row]
+    print("RSS取得中...")
+    feed = feedparser.parse(RSS_URL)
 
-    results = []
+    print("ブラウザ起動中...")
 
     with sync_playwright() as p:
 
         browser = p.chromium.launch(
-            headless=True,  # GitHub Actionsは必ずTrue
-            args=[
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                "--disable-dev-shm-usage"
-            ]
+            headless=False,  # 動作を見たい場合False（おすすめ）
+            slow_mo=500      # 人間っぽくゆっくり操作
         )
 
-        context = browser.new_context(
-            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-        )
+        page = browser.new_page()
 
-        page = context.new_page()
+        print("取得開始\n")
 
-        for url in urls:
-            redirect = get_redirect_url(page, url)
-            results.append([url, redirect])
+        for i, entry in enumerate(feed.entries, start=1):
+
+            google_url = entry.link
+            original = get_original_url(page, google_url)
+
+            print("ーーーーーーーーーーーーーー")
+            print(f"No: {i}")
+            print("タイトル:", entry.title)
+            print("GoogleURL:", google_url)
+            print("元記事:", original)
 
         browser.close()
 
-    # CSV書き込み
-    with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["元URL", "リダイレクト後URL"])
-        writer.writerows(results)
-
-    print("完了しました")
+    print("\n完了しました")
 
 
-# ===============================
+# ==============================
 # 実行
-# ===============================
+# ==============================
 if __name__ == "__main__":
     main()

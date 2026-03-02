@@ -16,8 +16,10 @@ jobs:
         with:
           python-version: "3.11"
 
-      - run: |
+      - name: ライブラリインストール
+        run: |
           pip install playwright feedparser
-          playwright install chromium
+          playwright install --with-deps chromium
 
-      - run: python google_news_redirect.py
+      - name: 実行
+        run: python google_news_redirect.py

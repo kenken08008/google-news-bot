@@ -36,37 +36,33 @@ sheet = gc.open_by_key(SPREADSHEET_ID).sheet1
 RSS_URL = "https://news.google.com/rss/search?hl=ja&gl=JP&ceid=JP%3Aja&oc=11&q=intitle%3A%E3%82%B9%E3%82%A6%E3%82%A7%E3%83%BC%E3%83%87%E3%83%B3%20when%3A1d"
 
 # =========================
-# 元記事URL取得（canonical＋og:url＋AMP対応）
+# 元記事URL取得（canonical優先＋AMP対応＋?redirect=1削除）
 # =========================
 def get_original_url(page, url):
     try:
-        page.goto(url, timeout=180000)  # 3分
+        # まずGoogleニュースページを開く
+        page.goto(url, timeout=120000)  # 2分タイムアウト
         page.wait_for_load_state("networkidle")
+
+        # Googleニュースから別ドメインに移動するまで待つ
         page.wait_for_function(
             "location.hostname !== 'news.google.com'",
-            timeout=60000  # 最大1分待機
+            timeout=40000
         )
 
-        # canonicalタグ
+        # canonicalタグを取得
         canonical = page.locator("link[rel='canonical']").get_attribute("href")
         if canonical:
+            # AMP URLの場合は正規URLに変換
+            canonical = canonical.replace("/amp/", "/")
+            # ?redirect=1など不要なパラメータ削除
             canonical = canonical.split("?")[0]
-            if "/amp/" in canonical:
-                canonical = canonical.replace("/amp/", "/")
             return canonical
 
-        # canonicalがない場合は og:url を参照
-        og_url = page.locator("meta[property='og:url']").get_attribute("content")
-        if og_url:
-            og_url = og_url.split("?")[0]
-            if "/amp/" in og_url:
-                og_url = og_url.replace("/amp/", "/")
-            return og_url
-
-        # それでもなければ現在のURLを正規化
-        current = page.url.split("?")[0]
-        if "/amp/" in current:
-            current = current.replace("/amp/", "/")
+        # canonicalがない場合は現在のURLを正規化
+        current = page.url
+        current = current.replace("/amp/", "/")
+        current = current.split("?")[0]
         return current
 
     except Exception as e:
@@ -77,30 +73,40 @@ def get_original_url(page, url):
 # メイン処理
 # =========================
 def main():
+    # シート初期化
     sheet.clear()
+
+    # ヘッダー（タイトルと元記事URL）
     sheet.append_row([
         "タイトル",
         "元記事URL"
     ])
 
+    # RSS取得
     feed = feedparser.parse(RSS_URL)
+    print("RSS取得件数:", len(feed.entries))
 
+    # Playwright起動
     with sync_playwright() as p:
-        # headless=False + slow_moで人間っぽく
-        browser = p.chromium.launch(headless=False, slow_mo=500)
+        browser = p.chromium.launch(
+            headless=True,  # GitHub ActionsではTrue。ローカルテストはFalseで可
+            slow_mo=500     # 0.5秒遅延で人間っぽく
+        )
         page = browser.new_page()
 
+        # 最大10件に制限
         for i, entry in enumerate(feed.entries[:10], start=1):
             google_url = entry.link
             original = get_original_url(page, google_url)
 
+            # スプレッドシートに書き込み
             sheet.append_row([
                 entry.title,
                 original
             ])
+            print(f"{i}件目書き込み: {original}")
 
-            print(f"{i}: 書き込み完了 → {original}")
-            time.sleep(2)  # ページ間で2秒待機
+            time.sleep(2)  # 2秒待機して安全性向上
 
         browser.close()
 
